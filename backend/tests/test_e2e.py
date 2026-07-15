@@ -24,6 +24,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 import app.services.approval_workflow as approval_workflow_module
+import app.services.followups as followups_module
 from app.core.config import settings
 from app.main import app
 
@@ -176,9 +177,18 @@ async def test_request_for_unknown_product_still_replies(client: AsyncClient):
     assert response.json()["reply"]
 
 
-async def test_decide_edit_recomputes_totals_without_llm(client: AsyncClient):
+async def test_decide_edit_recomputes_totals_without_llm(client: AsyncClient, monkeypatch):
     """Exercises the edit-then-approve path (recompute, audit, delivery-failure
-    notification) entirely through CRUD endpoints — no LLM or Twilio needed."""
+    notification) entirely through CRUD endpoints — no LLM needed. Twilio's send
+    is forced to fail via monkeypatch (not just "no credentials configured") since
+    a real Twilio account will accept a message submission for an unjoined/fake
+    number without raising synchronously — it just never arrives."""
+
+    def _raise(to, body):
+        raise RuntimeError("simulated delivery failure")
+
+    monkeypatch.setattr(approval_workflow_module, "send_whatsapp_message", _raise)
+
     customer = (
         await client.post("/customers", json={"name": "Edit Test", "phone_number": _unique_phone_number()})
     ).json()
@@ -229,8 +239,7 @@ async def test_decide_edit_recomputes_totals_without_llm(client: AsyncClient):
     assert updated["subtotal"] == 500.0
     assert updated["total"] == 590.0  # 500 + 18% GST
 
-    # No Twilio credentials configured in this environment -> delivery fails ->
-    # surfaced as a notification instead of a 500.
+    # Simulated Twilio failure -> surfaced as a notification instead of a 500.
     notifications = (await client.get("/notifications")).json()
     assert any(n["type"] == "delivery_failed" and n["link_id"] == quotation["id"] for n in notifications)
 
@@ -270,3 +279,142 @@ async def test_integrations_status_never_leaks_secrets(client: AsyncClient):
         "tax_rate",
         "currency",
     }
+
+
+def _followup_items(product_name: str, quantity: int = 3):
+    return [
+        {
+            "product_name": product_name,
+            "quantity": quantity,
+            "unit_price": 50.0,
+            "line_total": 50.0 * quantity,
+            "is_service": False,
+            "assumptions": [],
+        }
+    ]
+
+
+@requires_openai
+async def test_followup_search_finds_delivered_but_not_pending_documents(client: AsyncClient):
+    """search_delivered() must exclude pending_approval documents — the customer
+    never saw that pricing, so a follow-up shouldn't reference it."""
+    customer, conversation = await _make_customer_and_conversation(client, "FollowupSearch")
+
+    delivered = (
+        await client.post(
+            "/quotations",
+            json={
+                "customer_id": customer["id"],
+                "conversation_id": conversation["id"],
+                "status": "approved",
+                "items": _followup_items("Zzyzx Followup Test Widget"),
+                "subtotal": 150.0,
+                "tax_amount": 27.0,
+                "total": 177.0,
+                "customer_message": "Here is your quote for 3 Zzyzx Followup Test Widgets.",
+            },
+        )
+    ).json()
+    pending = (
+        await client.post(
+            "/quotations",
+            json={
+                "customer_id": customer["id"],
+                "conversation_id": conversation["id"],
+                "status": "pending_approval",
+                "items": _followup_items("Zzyzx Followup Test Widget"),
+                "subtotal": 150.0,
+                "tax_amount": 27.0,
+                "total": 177.0,
+                "customer_message": "Here is your quote for 3 Zzyzx Followup Test Widgets.",
+            },
+        )
+    ).json()
+
+    response = await client.post("/follow-ups/search", json={"description": "Zzyzx Followup Test Widget"})
+    assert response.status_code == 200
+    candidate_ids = {c["document_id"] for c in response.json()["candidates"]}
+    assert delivered["id"] in candidate_ids
+    assert pending["id"] not in candidate_ids
+
+
+async def test_followup_send_delivers_and_logs_outbound_message(client: AsyncClient, monkeypatch):
+    sent = {}
+    monkeypatch.setattr(followups_module, "send_whatsapp_message", lambda to, body: sent.update(to=to, body=body))
+
+    customer, conversation = await _make_customer_and_conversation(client, "FollowupSend")
+    quotation = (
+        await client.post(
+            "/quotations",
+            json={
+                "customer_id": customer["id"],
+                "conversation_id": conversation["id"],
+                "status": "sent",
+                "items": _followup_items("Widget", quantity=2),
+                "subtotal": 200.0,
+                "tax_amount": 36.0,
+                "total": 236.0,
+                "customer_message": "Here is your quote for 2 Widgets.",
+            },
+        )
+    ).json()
+
+    response = await client.post(
+        "/follow-ups/send",
+        json={
+            "document_type": "quotation",
+            "document_id": quotation["id"],
+            "conversation_id": conversation["id"],
+            "customer_id": customer["id"],
+            "message": "Just checking in on your quote!",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["sent"] is True
+    assert sent["to"] == customer["phone_number"]
+
+    messages = (await client.get(f"/conversations/{conversation['id']}/messages")).json()
+    assert any(m["direction"] == "outbound" and m["agent"] == "followup" for m in messages)
+
+    notifications = (await client.get("/notifications")).json()
+    assert any(n["type"] == "followup_sent" and n["link_id"] == quotation["id"] for n in notifications)
+
+
+async def test_followup_send_failure_creates_delivery_failed_notification(client: AsyncClient, monkeypatch):
+    def _raise(to, body):
+        raise RuntimeError("Twilio boom")
+
+    monkeypatch.setattr(followups_module, "send_whatsapp_message", _raise)
+
+    customer, conversation = await _make_customer_and_conversation(client, "FollowupSendFail")
+    quotation = (
+        await client.post(
+            "/quotations",
+            json={
+                "customer_id": customer["id"],
+                "conversation_id": conversation["id"],
+                "status": "sent",
+                "items": _followup_items("Widget", quantity=1),
+                "subtotal": 100.0,
+                "tax_amount": 18.0,
+                "total": 118.0,
+                "customer_message": "Here is your quote for 1 Widget.",
+            },
+        )
+    ).json()
+
+    response = await client.post(
+        "/follow-ups/send",
+        json={
+            "document_type": "quotation",
+            "document_id": quotation["id"],
+            "conversation_id": conversation["id"],
+            "customer_id": customer["id"],
+            "message": "Just checking in on your quote!",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["sent"] is False
+
+    notifications = (await client.get("/notifications")).json()
+    assert any(n["type"] == "delivery_failed" and n["link_id"] == quotation["id"] for n in notifications)

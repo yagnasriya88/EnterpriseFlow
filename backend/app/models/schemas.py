@@ -10,7 +10,7 @@ ApprovalStatus = Literal["pending", "approved", "rejected", "edited"]
 ApprovalAction = Literal["approve", "reject", "edit"]
 DocumentType = Literal["quotation", "invoice"]
 MessageDirection = Literal["inbound", "outbound"]
-NotificationType = Literal["approval_needed", "delivery_failed", "customer_replied"]
+NotificationType = Literal["approval_needed", "delivery_failed", "customer_replied", "followup_sent"]
 
 
 class ORMModel(BaseModel):
@@ -233,6 +233,41 @@ class PolicyDocumentChunkRead(ORMModel):
     chunk_index: int
     content: str
     created_at: datetime
+
+
+# --- follow-ups (staff-initiated, re-engage a customer over WhatsApp) -------------
+
+class FollowUpSearchRequest(BaseModel):
+    description: str
+
+
+class FollowUpCandidate(BaseModel):
+    document_type: DocumentType
+    document_id: uuid.UUID
+    conversation_id: uuid.UUID | None
+    customer_id: uuid.UUID
+    customer_name: str | None
+    customer_phone: str
+    summary: str
+    total: float
+    currency: str
+    draft_message: str
+
+
+class FollowUpSearchResponse(BaseModel):
+    candidates: list[FollowUpCandidate]
+
+
+class FollowUpSendRequest(BaseModel):
+    document_type: DocumentType
+    document_id: uuid.UUID
+    conversation_id: uuid.UUID | None = None
+    customer_id: uuid.UUID
+    message: str
+
+
+class FollowUpSendResponse(BaseModel):
+    sent: bool
 
 
 # --- notifications ----------------------------------------------------------------

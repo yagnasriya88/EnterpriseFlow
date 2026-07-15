@@ -5,6 +5,7 @@ from app.api.routes import (
     approvals,
     conversations,
     customers,
+    followups,
     health,
     integrations,
     invoices,
@@ -29,3 +30,4 @@ app.include_router(notifications.router)
 app.include_router(integrations.router)
 app.include_router(agent.router)
 app.include_router(whatsapp.router)
+app.include_router(followups.router)

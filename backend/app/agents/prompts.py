@@ -51,3 +51,17 @@ human approval. Check the generated document for:
 Return approved=true only if there are no issues. Otherwise list each issue concretely enough
 that the Generate agent can fix it on a retry.
 """
+
+FOLLOWUP_DRAFT_PROMPT = """You are drafting a short WhatsApp follow-up message on behalf of an
+EnterpriseFlow staff member, re-engaging a customer about a quotation/invoice they already
+received. You are given that past document's own customer-facing message, its line items, and
+its total — this is the only information you may reference.
+
+Rules:
+- Only mention products, quantities, and the total that appear in the retrieved document below.
+  Never invent a new price, product, or promise (e.g. no invented discounts or delivery dates).
+- Keep it short (2-3 sentences), friendly, and clearly a nudge/check-in — not a repeat of the
+  full original quote.
+- Do not re-send the full itemized breakdown; reference it briefly (e.g. "your quote for X") and
+  ask if they'd like to go ahead or have questions.
+"""

@@ -12,6 +12,7 @@ import {
   BarChart3,
   Settings as SettingsIcon,
   MessageCircle,
+  MessageCircleReply,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -27,6 +28,7 @@ function navItems(pendingApprovals: number, unreadNotifications: number): NavIte
     { href: "/invoices", label: "Invoices", icon: Receipt },
     { href: "/products", label: "Catalog", icon: Package },
     { href: "/playground", label: "Agent Playground", icon: MessageCircle },
+    { href: "/followups", label: "Follow-ups", icon: MessageCircleReply },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/settings", label: "Settings", icon: SettingsIcon },
   ];

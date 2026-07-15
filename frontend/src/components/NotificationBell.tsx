@@ -13,6 +13,7 @@ const TYPE_LABEL: Record<Notification["type"], string> = {
   approval_needed: "Approval needed",
   delivery_failed: "Delivery failed",
   customer_replied: "New message",
+  followup_sent: "Follow-up sent",
 };
 
 export function NotificationBell({ notifications }: { notifications: Notification[] }) {
