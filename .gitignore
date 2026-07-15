@@ -2,6 +2,11 @@
 __pycache__/
 *.py[codz]
 *$py.class
+.claude/
+PLAN.md
+STATE.md
+project_requirement.txt
+*.csv
 
 # C extensions
 *.so
