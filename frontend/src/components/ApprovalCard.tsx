@@ -136,6 +136,10 @@ export function ApprovalCard({
             placeholder="Reason for rejecting (visible in the audit trail)"
             rows={2}
           />
+          <p className="text-body-sm text-neutral-500">
+            The customer will get a WhatsApp message letting them know their request wasn&apos;t approved —
+            this reason stays internal and isn&apos;t sent to them.
+          </p>
         </div>
       )}
 

@@ -121,23 +121,48 @@ async def test_large_quote_is_gated_then_delivered_on_approval(client: AsyncClie
     assert again.status_code == 400
 
 
-@requires_openai
-async def test_rejected_approval_never_delivers(client: AsyncClient, monkeypatch):
-    calls = []
-    monkeypatch.setattr(approval_workflow_module, "send_whatsapp_message", lambda *a, **k: calls.append(a))
-
-    customer, conversation = await _make_customer_and_conversation(client, "0003")
-    response = await client.post(
-        "/agent/message",
-        json={
-            "conversation_id": conversation["id"],
-            "customer_id": customer["id"],
-            "message": "I need 500 throw pillows for a hotel order, please quote me",
-        },
+async def test_rejected_approval_sends_decline_notice_without_leaking_the_quote(
+    client: AsyncClient, monkeypatch
+):
+    """Rejecting no longer means the customer hears nothing: a generic decline
+    notice goes out over WhatsApp (see approval_workflow.REJECTION_MESSAGE), but
+    the internal `reason` and the quote's own priced customer_message must never
+    reach the customer, and the document must stay "rejected" (not flip to
+    "sent" the way approve/edit does). Built entirely through CRUD endpoints,
+    same pattern as test_decide_edit_recomputes_totals_without_llm — no LLM
+    needed."""
+    sent = {}
+    monkeypatch.setattr(
+        approval_workflow_module, "send_whatsapp_message", lambda to, body: sent.update(to=to, body=body)
     )
-    body = response.json()
-    pending = (await client.get("/approvals?status=pending")).json()
-    approval = next(a for a in pending if a["document_id"] == body["document_id"])
+
+    customer, conversation = await _make_customer_and_conversation(client, "RejectNotice")
+    quotation = (
+        await client.post(
+            "/quotations",
+            json={
+                "customer_id": customer["id"],
+                "conversation_id": conversation["id"],
+                "items": [
+                    {
+                        "product_name": "Widget",
+                        "quantity": 500,
+                        "unit_price": 100.0,
+                        "line_total": 50000.0,
+                        "is_service": False,
+                        "assumptions": [],
+                    }
+                ],
+                "subtotal": 50000.0,
+                "tax_amount": 9000.0,
+                "total": 59000.0,
+                "customer_message": "Here is your quote for 500 Widgets: total 59000.",
+            },
+        )
+    ).json()
+    approval = (
+        await client.post("/approvals", json={"document_type": "quotation", "document_id": quotation["id"]})
+    ).json()
 
     decide = await client.post(
         f"/approvals/{approval['id']}/decide",
@@ -145,10 +170,66 @@ async def test_rejected_approval_never_delivers(client: AsyncClient, monkeypatch
     )
     assert decide.status_code == 200
     assert decide.json()["status"] == "rejected"
-    assert calls == []
 
-    quotation = (await client.get(f"/quotations/{body['document_id']}")).json()
-    assert quotation["status"] == "rejected"
+    assert sent["to"] == customer["phone_number"]
+    assert sent["body"] == approval_workflow_module.REJECTION_MESSAGE
+    assert "too large for our capacity" not in sent["body"]  # internal reason stays audit-only
+    assert "59000" not in sent["body"]  # never leak the rejected quote's pricing
+
+    rejected = (await client.get(f"/quotations/{quotation['id']}")).json()
+    assert rejected["status"] == "rejected"  # never flips to "sent" like approve/edit does
+
+    messages = (await client.get(f"/conversations/{conversation['id']}/messages")).json()
+    assert any(
+        m["direction"] == "outbound" and m["agent"] == "approval" and m["body"] == approval_workflow_module.REJECTION_MESSAGE
+        for m in messages
+    )
+
+
+async def test_reject_send_failure_creates_delivery_failed_notification(client: AsyncClient, monkeypatch):
+    def _raise(to, body):
+        raise RuntimeError("simulated delivery failure")
+
+    monkeypatch.setattr(approval_workflow_module, "send_whatsapp_message", _raise)
+
+    customer = (
+        await client.post("/customers", json={"name": "Reject Fail", "phone_number": _unique_phone_number()})
+    ).json()
+    quotation = (
+        await client.post(
+            "/quotations",
+            json={
+                "customer_id": customer["id"],
+                "items": [
+                    {
+                        "product_name": "Widget",
+                        "quantity": 1,
+                        "unit_price": 100.0,
+                        "line_total": 100.0,
+                        "is_service": False,
+                        "assumptions": [],
+                    }
+                ],
+                "subtotal": 100.0,
+                "tax_amount": 18.0,
+                "total": 118.0,
+                "customer_message": "Here is your quote for 1 Widget.",
+            },
+        )
+    ).json()
+    approval = (
+        await client.post("/approvals", json={"document_type": "quotation", "document_id": quotation["id"]})
+    ).json()
+
+    decide = await client.post(
+        f"/approvals/{approval['id']}/decide",
+        json={"action": "reject", "decided_by": "tester@example.com", "reason": "out of stock"},
+    )
+    assert decide.status_code == 200
+    assert decide.json()["status"] == "rejected"
+
+    notifications = (await client.get("/notifications")).json()
+    assert any(n["type"] == "delivery_failed" and n["link_id"] == quotation["id"] for n in notifications)
 
 
 @requires_openai

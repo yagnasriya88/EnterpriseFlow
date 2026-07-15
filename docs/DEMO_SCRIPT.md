@@ -71,4 +71,4 @@ the policy document library the Context agent searches against.
 - Multi-role access (Owner/Approver/Viewer) — single admin login for this
   single-tenant MVP; see `PLAN.md` Phase 6.
 - A production deployment — `DEPLOYMENT.md` has the checklist; nothing has
-  been pushed to Railway/Vercel/hosted Supabase yet.
+  been pushed to Render/Vercel/hosted Supabase yet.

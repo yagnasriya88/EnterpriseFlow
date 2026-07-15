@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY scripts ./scripts
 
-# Railway (and most PaaS targets) inject $PORT at runtime; default to 8000 for
+# Render (and most PaaS targets) inject $PORT at runtime; default to 8000 for
 # `docker run` without one.
 ENV PORT=8000
 EXPOSE 8000

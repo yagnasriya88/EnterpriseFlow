@@ -1,7 +1,7 @@
 # Deployment
 
 Everything here is prepared but **not yet executed** — it needs accounts/credentials
-only the project owner has (Railway, Vercel, a hosted Supabase project). This
+only the project owner has (Render, Vercel, a hosted Supabase project). This
 doc is the checklist for whoever runs that step.
 
 ## 1. Hosted Supabase (Postgres + pgvector)
@@ -16,14 +16,17 @@ doc is the checklist for whoever runs that step.
 3. Copy the connection string, API URL, anon key, and service role key from
    the project's Settings → API / Database pages.
 
-## 2. Backend → Railway
+## 2. Backend → Render
 
-1. `railway init` in `backend/` (or connect the GitHub repo in the Railway
-   dashboard, root directory `backend/`). `backend/railway.toml` and
-   `backend/Dockerfile` are already set up — Railway will build the
-   Dockerfile automatically.
-2. Set environment variables (Railway project → Variables), same names as
-   `backend/.env.example`:
+1. In the Render dashboard: **New → Blueprint**, connect the GitHub repo.
+   Render finds `render.yaml` at the repo root automatically — it points at
+   `backend/` as the Docker build context, so `backend/Dockerfile` is built
+   as-is, no changes needed. (Alternative: **New → Web Service**, connect the
+   repo, set root directory to `backend/`, runtime "Docker" — same result
+   without the Blueprint file.)
+2. Set environment variables (Render service → Environment), same names as
+   `backend/.env.example` — `render.yaml` declares these keys with
+   `sync: false` so Render prompts for each value instead of guessing one:
    - `DATABASE_URL` — the hosted Supabase Postgres connection string, with
      the `postgresql+asyncpg://` scheme (not the plain `postgresql://` Supabase
      shows by default)
@@ -31,10 +34,17 @@ doc is the checklist for whoever runs that step.
    - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER`
    - `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD`, `NOTIFY_TO_EMAIL` (optional)
    - `AUTO_APPROVE_THRESHOLD` (optional, defaults to 5000)
-3. Deploy. Railway assigns a public URL and injects `$PORT` — the Dockerfile
-   already reads it.
+3. Deploy. Render assigns a public URL (`https://<service>.onrender.com`) and
+   injects `$PORT` — the Dockerfile already reads it. `render.yaml` sets
+   `healthCheckPath: /health`, so Render waits for that to return 200 before
+   marking a deploy live.
 4. Point the Twilio WhatsApp sandbox webhook at
-   `https://<railway-app>.up.railway.app/webhooks/whatsapp`.
+   `https://<service>.onrender.com/webhooks/whatsapp`.
+5. Note the free/starter Render plan spins down after 15 minutes idle and
+   takes ~30-60s to cold-start on the next request — fine for a demo, but if
+   the WhatsApp webhook needs to respond promptly in production, upgrade the
+   plan (edit `plan:` in `render.yaml`, or change it in the dashboard) so the
+   service stays warm.
 
 ## 3. Frontend → Vercel
 
@@ -43,8 +53,8 @@ doc is the checklist for whoever runs that step.
 2. Set environment variables, same names as `frontend/.env.example`:
    - `NEXT_PUBLIC_SUPABASE_URL` — the hosted Supabase project URL
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — the hosted project's anon key
-   - `BACKEND_URL` — the Railway backend URL (server-side only)
-   - `NEXT_PUBLIC_BACKEND_URL` — the same Railway backend URL (used for the
+   - `BACKEND_URL` — the Render backend URL (server-side only)
+   - `NEXT_PUBLIC_BACKEND_URL` — the same Render backend URL (used for the
      browser-facing PDF download links)
 3. Create the admin user against the **hosted** project once it exists (the
    local one only works against the local stack):
@@ -67,8 +77,8 @@ cleanly (see `backend/tests/test_e2e.py`).
 
 ## Not done here
 
-Nothing above has actually been run against real Railway/Vercel/hosted-Supabase
+Nothing above has actually been run against real Render/Vercel/hosted-Supabase
 infrastructure — that requires accounts this environment doesn't have. The
-Dockerfile, railway.toml, and CI workflow are built and the CI job itself has
+Dockerfile, render.yaml, and CI workflow are built and the CI job itself has
 been verified to pass against a local equivalent, but a live deploy is the
 remaining step, and it's the project owner's to trigger.
