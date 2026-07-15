@@ -1,5 +1,8 @@
+import { Receipt } from "lucide-react";
 import { api } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Table, Thead, Th, Tr, Td } from "@/components/ui/Table";
 import { formatDateTime, formatMoney } from "@/lib/format";
 
 export default async function InvoicesPage() {
@@ -12,55 +15,51 @@ export default async function InvoicesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight text-black dark:text-zinc-50">Invoices</h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <h1 className="font-display text-heading-lg text-neutral-900">Invoices</h1>
+        <p className="mt-1 text-body-sm text-neutral-500">
           Every invoice the agent pipeline has generated, newest first.
         </p>
       </div>
 
       {invoices.length === 0 ? (
-        <p className="text-sm text-zinc-500">No invoices yet.</p>
+        <EmptyState icon={Receipt} title="No invoices yet" description="Issued invoices will show up here." />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-black/[.08] bg-white dark:border-white/[.145] dark:bg-zinc-950">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-black/[.08] text-left text-xs uppercase tracking-wide text-zinc-400 dark:border-white/[.145]">
-                <th className="px-4 py-3 font-medium">Customer</th>
-                <th className="px-4 py-3 font-medium">Total</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Created</th>
-                <th className="px-4 py-3 font-medium">PDF</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoices.map((invoice) => {
-                const customer = customerById.get(invoice.customer_id);
-                return (
-                  <tr key={invoice.id} className="border-b border-black/[.06] last:border-0 dark:border-white/[.08]">
-                    <td className="px-4 py-3 text-black dark:text-zinc-50">
-                      {customer?.name || customer?.phone_number || "Unknown"}
-                    </td>
-                    <td className="px-4 py-3 tabular-nums">{formatMoney(invoice.total, invoice.currency)}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={invoice.status} />
-                    </td>
-                    <td className="px-4 py-3 text-zinc-500">{formatDateTime(invoice.created_at)}</td>
-                    <td className="px-4 py-3">
-                      <a
-                        href={`${process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000"}/invoices/${invoice.id}/pdf`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm font-medium text-black underline dark:text-zinc-50"
-                      >
-                        View
-                      </a>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <Thead>
+            <Th>Customer</Th>
+            <Th>Total</Th>
+            <Th>Status</Th>
+            <Th>Created</Th>
+            <Th>PDF</Th>
+          </Thead>
+          <tbody>
+            {invoices.map((invoice) => {
+              const customer = customerById.get(invoice.customer_id);
+              return (
+                <Tr key={invoice.id}>
+                  <Td className="font-medium text-neutral-900">
+                    {customer?.name || customer?.phone_number || "Unknown"}
+                  </Td>
+                  <Td className="tabular-nums">{formatMoney(invoice.total, invoice.currency)}</Td>
+                  <Td>
+                    <StatusBadge status={invoice.status} />
+                  </Td>
+                  <Td className="text-neutral-500">{formatDateTime(invoice.created_at)}</Td>
+                  <Td>
+                    <a
+                      href={`${process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000"}/invoices/${invoice.id}/pdf`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-body-sm font-medium text-primary-600 hover:text-primary-700 hover:underline"
+                    >
+                      View
+                    </a>
+                  </Td>
+                </Tr>
+              );
+            })}
+          </tbody>
+        </Table>
       )}
     </div>
   );

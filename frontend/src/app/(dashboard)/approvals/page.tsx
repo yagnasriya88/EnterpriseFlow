@@ -1,6 +1,8 @@
+import { CheckCircle2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { createClient } from "@/lib/supabase/server";
 import { ApprovalCard } from "@/components/ApprovalCard";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export default async function ApprovalsPage() {
   const supabase = await createClient();
@@ -24,15 +26,15 @@ export default async function ApprovalsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight text-black dark:text-zinc-50">Approvals</h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <h1 className="font-display text-heading-lg text-neutral-900">Approvals</h1>
+        <p className="mt-1 text-body-sm text-neutral-500">
           Documents above the auto-approval threshold, oldest first. Nothing here reaches the customer until you
           decide.
         </p>
       </div>
 
       {oldestFirst.length === 0 ? (
-        <p className="text-sm text-zinc-500">Nothing waiting on you right now.</p>
+        <EmptyState icon={CheckCircle2} title="Nothing waiting on you" description="Approved and rejected documents move out of this queue automatically." />
       ) : (
         <div className="space-y-4">
           {oldestFirst.map((approval, index) => (

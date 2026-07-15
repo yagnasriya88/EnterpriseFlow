@@ -1,9 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Check, Pencil, X } from "lucide-react";
 import type { Approval, Customer, DocumentRecord, LineItem } from "@/lib/api";
 import { formatMoney, formatRelativeAge } from "@/lib/format";
 import { approveAction, editAndApproveAction, rejectAction } from "@/app/(dashboard)/approvals/actions";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input, Textarea } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
 
 const TAX_RATE = 0.18;
 
@@ -40,23 +45,23 @@ export function ApprovalCard({
   }
 
   return (
-    <div className="rounded-xl border border-black/[.08] bg-white p-5 dark:border-white/[.145] dark:bg-zinc-950">
+    <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-medium text-black dark:text-zinc-50">
+          <p className="font-medium text-neutral-900">
             {customer?.name || customer?.phone_number || "Unknown customer"}
           </p>
-          <p className="text-sm text-zinc-500">
+          <p className="text-body-sm text-neutral-500">
             {document.currency === "INR" ? "" : document.currency + " "}
             {approval.document_type} · {formatMoney(mode === "edit" ? totals.total : document.total, document.currency)}
           </p>
         </div>
-        <span className="text-xs text-zinc-400">Waiting {formatRelativeAge(approval.created_at)}</span>
+        <Badge tone="warning">Waiting {formatRelativeAge(approval.created_at)}</Badge>
       </div>
 
-      <table className="mt-4 w-full text-sm">
+      <table className="mt-4 w-full text-body-sm">
         <thead>
-          <tr className="text-left text-xs uppercase tracking-wide text-zinc-400">
+          <tr className="text-left text-[11px] uppercase tracking-wide text-neutral-400">
             <th className="pb-2 font-medium">Item</th>
             <th className="pb-2 font-medium">Qty</th>
             <th className="pb-2 font-medium">Unit price</th>
@@ -65,18 +70,16 @@ export function ApprovalCard({
         </thead>
         <tbody>
           {items.map((item, index) => (
-            <tr key={index} className="border-t border-black/[.06] dark:border-white/[.08]">
+            <tr key={index} className="border-t border-neutral-100">
               <td className="py-2 pr-2">
-                <div>{item.product_name}</div>
+                <div className="text-neutral-800">{item.product_name}</div>
                 {item.assumptions.length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">
                     {item.assumptions.map((a, i) => (
-                      <span
-                        key={i}
-                        title={a.reason}
-                        className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-950/50 dark:text-amber-400"
-                      >
-                        assumed {a.field}: {a.assumed_value}
+                      <span key={i} title={a.reason}>
+                        <Badge tone="warning" className="text-[11px]">
+                          assumed {a.field}: {a.assumed_value}
+                        </Badge>
                       </span>
                     ))}
                   </div>
@@ -84,52 +87,54 @@ export function ApprovalCard({
               </td>
               <td className="py-2">
                 {mode === "edit" ? (
-                  <input
+                  <Input
                     type="number"
                     min={1}
                     value={item.quantity}
                     onChange={(e) => updateItem(index, "quantity", Number(e.target.value) || 1)}
-                    className="w-16 rounded border border-black/[.15] bg-transparent px-2 py-1 text-sm dark:border-white/[.2]"
+                    className="w-16 px-2 py-1"
                   />
                 ) : (
-                  item.quantity
+                  <span className="text-neutral-800">{item.quantity}</span>
                 )}
               </td>
               <td className="py-2">
                 {mode === "edit" ? (
-                  <input
+                  <Input
                     type="number"
                     min={0}
                     step="0.01"
                     value={item.unit_price}
                     onChange={(e) => updateItem(index, "unit_price", Number(e.target.value) || 0)}
-                    className="w-24 rounded border border-black/[.15] bg-transparent px-2 py-1 text-sm dark:border-white/[.2]"
+                    className="w-24 px-2 py-1"
                   />
                 ) : (
-                  formatMoney(item.unit_price, document.currency)
+                  <span className="text-neutral-800">{formatMoney(item.unit_price, document.currency)}</span>
                 )}
               </td>
-              <td className="py-2 text-right">{formatMoney(item.quantity * item.unit_price, document.currency)}</td>
+              <td className="py-2 text-right tabular-nums text-neutral-800">
+                {formatMoney(item.quantity * item.unit_price, document.currency)}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
 
       {mode === "edit" && (
-        <p className="mt-2 text-right text-sm text-zinc-500">
-          New total: <span className="font-medium text-black dark:text-zinc-50">{formatMoney(totals.total, document.currency)}</span>{" "}
-          (GST 18% incl.)
+        <p className="mt-2 text-right text-body-sm text-neutral-500">
+          New total:{" "}
+          <span className="font-medium text-neutral-900">{formatMoney(totals.total, document.currency)}</span> (GST
+          18% incl.)
         </p>
       )}
 
       {mode === "reject" && (
         <div className="mt-4 space-y-2">
-          <textarea
+          <Textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Reason for rejecting (visible in the audit trail)"
             rows={2}
-            className="w-full rounded-md border border-black/[.15] bg-transparent px-3 py-2 text-sm dark:border-white/[.2]"
           />
         </div>
       )}
@@ -137,73 +142,72 @@ export function ApprovalCard({
       <div className="mt-4 flex flex-wrap gap-2">
         {mode === "view" && (
           <>
-            <button
+            <Button
+              size="sm"
+              icon={Check}
               disabled={isPending}
               onClick={() => startTransition(() => approveAction(approval.id, decidedBy))}
-              className="rounded-md bg-black px-3 py-1.5 text-sm font-medium text-white transition hover:bg-black/85 disabled:opacity-50 dark:bg-white dark:text-black"
             >
               Approve
-            </button>
-            <button
-              disabled={isPending}
-              onClick={() => setMode("edit")}
-              className="rounded-md border border-black/[.15] px-3 py-1.5 text-sm text-black transition hover:bg-black/5 disabled:opacity-50 dark:border-white/[.2] dark:text-zinc-50 dark:hover:bg-white/10"
-            >
+            </Button>
+            <Button size="sm" variant="secondary" icon={Pencil} disabled={isPending} onClick={() => setMode("edit")}>
               Edit
-            </button>
-            <button
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              icon={X}
+              className="border-danger-200 text-danger-600 hover:bg-danger-50"
               disabled={isPending}
               onClick={() => setMode("reject")}
-              className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-700 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/30"
             >
               Reject
-            </button>
+            </Button>
           </>
         )}
         {mode === "edit" && (
           <>
-            <button
+            <Button
+              size="sm"
+              icon={Check}
               disabled={isPending}
               onClick={() =>
                 startTransition(() =>
                   editAndApproveAction(approval.id, decidedBy, items, document.customer_message ?? "")
                 )
               }
-              className="rounded-md bg-black px-3 py-1.5 text-sm font-medium text-white transition hover:bg-black/85 disabled:opacity-50 dark:bg-white dark:text-black"
             >
               Save &amp; approve
-            </button>
-            <button
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
               disabled={isPending}
               onClick={() => {
                 setItems(document.items);
                 setMode("view");
               }}
-              className="rounded-md border border-black/[.15] px-3 py-1.5 text-sm text-black transition hover:bg-black/5 disabled:opacity-50 dark:border-white/[.2] dark:text-zinc-50 dark:hover:bg-white/10"
             >
               Cancel
-            </button>
+            </Button>
           </>
         )}
         {mode === "reject" && (
           <>
-            <button
+            <Button
+              size="sm"
+              variant="destructive"
               disabled={isPending || reason.trim().length === 0}
               onClick={() => startTransition(() => rejectAction(approval.id, decidedBy, reason))}
-              className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
             >
               Confirm reject
-            </button>
-            <button
-              disabled={isPending}
-              onClick={() => setMode("view")}
-              className="rounded-md border border-black/[.15] px-3 py-1.5 text-sm text-black transition hover:bg-black/5 disabled:opacity-50 dark:border-white/[.2] dark:text-zinc-50 dark:hover:bg-white/10"
-            >
+            </Button>
+            <Button size="sm" variant="secondary" disabled={isPending} onClick={() => setMode("view")}>
               Cancel
-            </button>
+            </Button>
           </>
         )}
       </div>
-    </div>
+    </Card>
   );
 }

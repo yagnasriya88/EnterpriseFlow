@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/cn";
 import { formatDateTime } from "@/lib/format";
 
 export default async function ConversationThreadPage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,33 +19,39 @@ export default async function ConversationThreadPage({ params }: { params: Promi
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/inbox" className="text-sm text-zinc-500 hover:text-black dark:hover:text-zinc-50">
-          ← Inbox
+        <Link
+          href="/inbox"
+          className="inline-flex items-center gap-1 text-body-sm text-neutral-500 hover:text-primary-600"
+        >
+          <ArrowLeft className="size-3.5" aria-hidden="true" />
+          Inbox
         </Link>
-        <h1 className="mt-2 text-xl font-semibold tracking-tight text-black dark:text-zinc-50">
+        <h1 className="mt-2 font-display text-heading-lg text-neutral-900">
           {customer?.name || customer?.phone_number || "Unknown customer"}
         </h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-body-sm text-neutral-500">
           {customer?.phone_number} · {conversation.channel}
         </p>
       </div>
 
       <div className="space-y-3">
-        {messages.length === 0 && <p className="text-sm text-zinc-500">No messages yet.</p>}
+        {messages.length === 0 && <p className="text-body-sm text-neutral-500">No messages yet.</p>}
         {messages.map((message) => (
           <div
             key={message.id}
-            className={`max-w-xl rounded-xl px-4 py-3 text-sm ${
+            className={cn(
+              "max-w-xl rounded-lg px-4 py-3 text-body-sm",
               message.direction === "inbound"
-                ? "bg-white border border-black/[.08] dark:bg-zinc-950 dark:border-white/[.145]"
-                : "ml-auto bg-black text-white dark:bg-white dark:text-black"
-            }`}
+                ? "border border-neutral-200 bg-white shadow-xs"
+                : "ml-auto bg-primary-600 text-white shadow-sm"
+            )}
           >
             <p className="whitespace-pre-wrap">{message.body}</p>
             <p
-              className={`mt-1.5 text-xs ${
-                message.direction === "inbound" ? "text-zinc-400" : "text-white/60 dark:text-black/60"
-              }`}
+              className={cn(
+                "mt-1.5 text-[11px]",
+                message.direction === "inbound" ? "text-neutral-400" : "text-white/70"
+              )}
             >
               {formatDateTime(message.created_at)}
               {message.agent ? ` · ${message.agent}` : ""}

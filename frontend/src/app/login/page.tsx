@@ -1,4 +1,11 @@
-import { login } from "./actions";
+import { Workflow, FileCheck2, MessagesSquare } from "lucide-react";
+import { LoginForm } from "./LoginForm";
+
+const HIGHLIGHTS = [
+  { icon: MessagesSquare, text: "Customer messages triaged the moment they arrive" },
+  { icon: FileCheck2, text: "Quotes and invoices drafted, priced, and ready to review" },
+  { icon: Workflow, text: "Nothing reaches a customer without your sign-off" },
+];
 
 export default async function LoginPage({
   searchParams,
@@ -8,59 +15,48 @@ export default async function LoginPage({
   const { error } = await searchParams;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 dark:bg-black">
-      <form
-        action={login}
-        className="w-full max-w-sm space-y-5 rounded-xl border border-black/[.08] bg-white p-8 shadow-sm dark:border-white/[.145] dark:bg-zinc-950"
-      >
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight text-black dark:text-zinc-50">
-            EnterpriseFlow
+    <div className="flex min-h-screen">
+      <div className="relative hidden w-1/2 overflow-hidden bg-primary-600 lg:flex lg:flex-col lg:justify-between lg:p-12">
+        <div
+          className="pointer-events-none absolute -left-24 -top-24 size-96 rounded-full bg-primary-400/40 blur-3xl"
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute bottom-0 right-0 size-[28rem] rounded-full bg-accent-500/30 blur-3xl"
+          aria-hidden="true"
+        />
+
+        <span className="relative text-body-sm font-medium uppercase tracking-[0.14em] text-primary-100">
+          EnterpriseFlow
+        </span>
+
+        <div className="relative space-y-8">
+          <h1 className="font-display text-display-lg text-white text-balance">
+            Let the agents draft it.
+            <br />
+            You approve what ships.
           </h1>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Sign in to the admin dashboard.</p>
+          <ul className="space-y-4">
+            {HIGHLIGHTS.map(({ icon: Icon, text }) => (
+              <li key={text} className="flex items-center gap-3 text-body text-primary-50">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10">
+                  <Icon className="size-4" aria-hidden="true" />
+                </span>
+                {text}
+              </li>
+            ))}
+          </ul>
         </div>
 
-        {error && (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-400">
-            {error}
-          </p>
-        )}
+        <p className="relative text-body-sm text-primary-200">Single-tenant · GST 18% · Human-approved delivery</p>
+      </div>
 
-        <div className="space-y-1.5">
-          <label htmlFor="email" className="text-sm font-medium text-black dark:text-zinc-50">
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-            className="w-full rounded-md border border-black/[.15] bg-transparent px-3 py-2 text-sm text-black outline-none focus:border-black/40 dark:border-white/[.2] dark:text-zinc-50 dark:focus:border-white/40"
-          />
+      <div className="flex w-full flex-col items-center justify-center bg-neutral-50 px-6 py-16 lg:w-1/2">
+        <div className="mb-10 lg:hidden">
+          <span className="font-display text-heading-lg text-neutral-900">EnterpriseFlow</span>
         </div>
-
-        <div className="space-y-1.5">
-          <label htmlFor="password" className="text-sm font-medium text-black dark:text-zinc-50">
-            Password
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            required
-            autoComplete="current-password"
-            className="w-full rounded-md border border-black/[.15] bg-transparent px-3 py-2 text-sm text-black outline-none focus:border-black/40 dark:border-white/[.2] dark:text-zinc-50 dark:focus:border-white/40"
-          />
-        </div>
-
-        <button
-          type="submit"
-          className="w-full rounded-md bg-black px-3 py-2 text-sm font-medium text-white transition hover:bg-black/85 dark:bg-white dark:text-black dark:hover:bg-white/85"
-        >
-          Sign in
-        </button>
-      </form>
+        <LoginForm error={error} />
+      </div>
     </div>
   );
 }
